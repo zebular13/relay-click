@@ -1,15 +1,14 @@
 #include <CurieBLE.h>
 /**
- * Example demonstrating the use of the relay click and arduino uno click shield from
- * MikroElektronika.
+ * This is a copy of the relay-click sketch with two LEDs instead of a relay
  * 
  * Uplaod this sketch to your arduino/genuino101, complete the circuit and access from the web!
  * Web Bluetoooth goodness!
  * 
  * To be added:
  *    2) BLE control. Done
- *    3) relay object. Done
- *    4) relay interval function. Done
+ *    3) LED object. Done
+ *    4) LED interval function. Done
  *    5) RTC "alarm clock" function. Yet to be done . . .
  */
 
@@ -17,41 +16,42 @@
  * pins for each relay specified here. 
  * depend on the Arduino click shield specifications, with the relay click board 
  * plugged into slot 1
- */
-#define RELAY1 6 
-#define RELAY2 10
+*/   
+
 
 /**
- * The Relay object will model the relay state and help with control flow in the loop()
- * function.
- */
+ * pins for each led specified here. 
+ * depend on the Arduino click shield specifications, with the led click board 
+ * plugged into slot 1
+*/   
+      #define LED1 13 // pin to use for the LED
+      #define LED2 12 // pin to use for the LED
 
-class Relay
+class Led
 {
 
-  int relayID;
+  int ledID;
   int pinAssignment;
-  boolean relayState;
+  boolean ledState;
   boolean intervalState;
   long interval;
   boolean intervalToggle;
 
   public:
 
-  Relay(int id, int pin )
+  Led(int id, int pin )
   {
-    relayID = id;
+    ledID = id;
     pinAssignment = pin;
-    relayState = false;  
+    ledState = false;  
     intervalState = false;
     interval = 0;
     intervalToggle = false;
   }
-
-  /*
-   * The relay is initialized to the physical pin assigned to it and 
+/*
+   * The led is initialized to the physical pin assigned to it and 
    * this pin is set to low.
-   * Not the relay intial states are set in the relay constructor.
+   * Not the led intial states are set in the led constructor.
    */
   void initialize()
   {
@@ -59,14 +59,14 @@ class Relay
     digitalWrite(pinAssignment,LOW);
   }
   
-  int getRelayID() {return relayID;}
-  void setRelayId(int id) {relayID = id;}
+  int getLedID() {return ledID;}
+  void setLedId(int id) {ledID = id;}
 
   int getPinAssignment() {return pinAssignment;}
   void setPinAssignment(int pin) {pinAssignment = pin;}
 
-  boolean getRelayState() {return relayState;}
-  void setRelayState(boolean state ) {relayState = state;}
+  boolean getLedState() {return ledState;}
+  void setLedState(boolean state ) {ledState = state;}
 
   boolean getIntervalState() {return intervalState;}
   void setIntervalState(boolean state) { intervalState = state;}
@@ -94,94 +94,90 @@ class Relay
   }
 
 };
-
-Relay relay1(1, RELAY1);
-Relay relay2(2, RELAY2);
+Led led1(1,LED1);
+Led led2(2,LED2);
 
 // timing parameters
-long currentMillis, previousMillisRelay1, previousMillisRelay2;
+long currentMillis, previousMillisLed1, previousMillisLed2;
 
 union
 {
   long interval;
   unsigned char bytes[4];  
-} relaySettings;
+} ledSettings;
 
-/* establish BLE service & characteristics */
-BLEPeripheral blePeripheral;
-BLEService relayService("917649A0-D98E-11E5-9EEC-0002A5D5C51B");
-BLECharacteristic relayCharacteristic("917649A1-D98E-11E5-9EEC-0002A5D5C51B", BLEWrite, 5);
-// BLEUnsignedCharCharacteristic relayCharacteristic("917649A1-D98E-11E5-9EEC-0002A5D5C51B", BLERead | BLEWrite);
-BLEDescriptor relayDescriptor("2902","relay");
 
-void setup() 
-{
-  // initiate serial communications for debugging
+BLEPeripheral blePeripheral;  // BLE Peripheral Device (the board you're programming)
+BLEService ledService("19B10000-E8F2-537E-4F6C-D104768A1214"); // BLE LED Service
+
+// BLE LED Switch Characteristic - custom 128-bit UUID, read and writable by central
+BLECharacteristic ledCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", BLERead | BLEWrite, 5);
+BLEDescriptor ledDescriptor("2902","led"); //not sure what "2902 stands for
+
+void setup() {
   Serial.begin(9600);
-  Serial.println("click relay example");
- /** 
-   *  BLE initilizations
-   */
 
-  blePeripheral.setLocalName("relays");
-  blePeripheral.setAdvertisedServiceUuid(relayService.uuid());
-  blePeripheral.addAttribute(relayService);
-  blePeripheral.addAttribute(relayCharacteristic);
-  blePeripheral.addAttribute(relayDescriptor);
+  // set LED pin to output mode
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+
+  // set advertised local name and service UUID:
+  blePeripheral.setLocalName("LED");
+  blePeripheral.setAdvertisedServiceUuid(ledService.uuid());
+
+  // add service and characteristic:
+  blePeripheral.addAttribute(ledService);
+  blePeripheral.addAttribute(ledCharacteristic);
+
+
+  blePeripheral.addAttribute(ledDescriptor);
 
   blePeripheral.setEventHandler(BLEConnected, blePeripheralConnectHandler);
   blePeripheral.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
-  relayCharacteristic.setEventHandler(BLEWritten, relayCharacteristicWritten);
+  ledCharacteristic.setEventHandler(BLEWritten, ledCharacteristicWritten);
   
   // All BLE characteristics should be initialized to a starting value prior
   // using them.
-
-  const unsigned char relayInitializer[5] = {0,0,0,0,0};
-  relayCharacteristic.setValue(relayInitializer,5);
+  const unsigned char ledInitializer[5] = {0,0,0,0,0};
+  ledCharacteristic.setValue(ledInitializer,5);
   
+  // begin advertising BLE service:
   blePeripheral.begin();
-  
-  // Set relays to initial states
-  relay1.initialize();
-  relay2.initialize();
+  // Set leds to initial states
+  led1.initialize();
+  led2.initialize();
+
 
   // intialize timing paramters
   currentMillis = millis();
-  previousMillisRelay1 = millis();
-  previousMillisRelay2 = millis();
+  previousMillisLed1 = millis();
+  previousMillisLed2 = millis();
   
+  Serial.println("BLE LED Peripheral");
 }
 
-void loop() 
-{
-  /**
-   * The main loop() checks for the relays being set to intervals and
+void loop() {
+
+    /**
+   * The main loop() checks for the leds being set to intervals and
    * toggles then is so and the interval is exceeded.
    */
+  // listen for BLE peripherals to connect:
+  BLECentral central = blePeripheral.central();
 
   currentMillis = millis();
   
-  if (relay1.getIntervalState()) 
+  if (led1.getIntervalState()) 
   {
-    if ((currentMillis - previousMillisRelay1) > relay1.getInterval())
+    if ((currentMillis - previousMillisLed1) > led1.getInterval())
     {
-      relay1.toggle();
-      previousMillisRelay1 = currentMillis;
+      led1.toggle();
+      previousMillisLed1 = currentMillis;
       Serial.println("toggle1");
     }
   }
-
-  if (relay2.getIntervalState())
-  {  
-    if ((currentMillis - previousMillisRelay2) > relay2.getInterval())
-    {
-      relay2.toggle();
-      previousMillisRelay2 = currentMillis;
-      Serial.println("toggle2");
-    }
   }
-  
-}
+
 
 void blePeripheralConnectHandler(BLECentral& central) 
 {
@@ -197,85 +193,84 @@ void blePeripheralDisconnectHandler(BLECentral& central)
   Serial.println(central.address());
 }
 
-void relayCharacteristicWritten(BLECentral& central, BLECharacteristic& characteristic)
+void ledCharacteristicWritten(BLECentral& central, BLECharacteristic& characteristic)
 {
   /**
-   * This function is called whenever the user changes the relayCharacteristic on the hybrid
-   * web app. It is used to chage the state of the relay object, these changes are then
+   * This function is called whenever the user changes the ledCharacteristic on the hybrid
+   * web app. It is used to chage the state of the led object, these changes are then
    * checked for in the loop. 
-   * Why? Well if we wished to simply turn the relays off and on, this approach is unnecessary. 
-   * we could just simply turn the relays off and on in the swtch/case statement. However
-   * we would like to add other functionality to the relays, such as interval on/off timing.
-   * Since we have 2 relays we can;t use the CurieTImer library, it has only one timer and we may
-   * wish to have different timing intervals for each relay. Addtionally this approach will allow
-   * us to more easily extend this app to many relays, which is is more realisitc for
+   * Why? Well if we wished to simply turn the leds off and on, this approach is unnecessary. 
+   * we could just simply turn the leds off and on in the swtch/case statement. However
+   * we would like to add other functionality to the leds, such as interval on/off timing.
+   * Since we have 2 leds we can;t use the CurieTImer library, it has only one timer and we may
+   * wish to have different timing intervals for each led. Addtionally this approach will allow
+   * us to more easily extend this app to many leds, which is is more realisitc for
    * a home automation system.
    */
-  const unsigned char* relayData = relayCharacteristic.value();
+  const unsigned char* ledData = ledCharacteristic.value();
   
-  relaySettings.bytes[0] = relayData[4];
-  relaySettings.bytes[1] = relayData[3];
-  relaySettings.bytes[2] = relayData[2];
-  relaySettings.bytes[3] = relayData[1];
+  ledSettings.bytes[0] = ledData[4];
+  ledSettings.bytes[1] = ledData[3];
+  ledSettings.bytes[2] = ledData[2];
+  ledSettings.bytes[3] = ledData[1];
 
   // convert interval byte array to long by casting;
-  long interval = (long)relaySettings.interval;
-  switch(relayData[0])
+  long interval = (long)ledSettings.interval;
+  switch(ledData[0])
   {
     case 0:
       // 0 value, do nothing
-      Serial.print(relayData[0]);
+      Serial.print(ledData[0]);
       Serial.print(" written ");Serial.print("interval: ");Serial.println(interval);
       break;
     case 1:
-      // relay 1 selected
-      Serial.print("relay1: ");Serial.print(relayData[0]);Serial.print(" interval: ");Serial.println(interval);
+      // led 1 selected
+      Serial.print("led1: ");Serial.print(ledData[0]);Serial.print(" interval: ");Serial.println(interval);
       if (interval != 0) 
       {
-        relay1.setIntervalState(true);
-        relay1.setRelayState(true);
-        relay1.setInterval(interval);
+        led1.setIntervalState(true);
+        led1.setLedState(true);
+        led1.setInterval(interval);
       } else {
-        if (relay1.getRelayState()) 
+        if (led1.getLedState()) 
         { 
-          relay1.setRelayState(false); 
-          relay1.turnOff(); 
-          relay1.setIntervalState(false);
-          relay1.setInterval(0); 
+          led1.setLedState(false); 
+          led1.turnOff(); 
+          led1.setIntervalState(false);
+          led1.setInterval(0); 
         }
         else {
-          relay1.setRelayState(true); 
-          relay1.turnOn();
-          relay1.setIntervalState(false);
-          relay1.setInterval(0);
+          led1.setLedState(true); 
+          led1.turnOn();
+          led1.setIntervalState(false);
+          led1.setInterval(0);
         }       
       }
       break;
     case 2:
-      // relay 2 selected
-      Serial.print("relay2: ");Serial.print(relayData[0]);Serial.print(" interval: ");Serial.println(interval);
+      // led 2 selected
+      Serial.print("led2: ");Serial.print(ledData[0]);Serial.print(" interval: ");Serial.println(interval);
       if (interval != 0) 
       {
-        relay2.setIntervalState(true);
-        relay2.setRelayState(true);
-        relay2.setInterval(interval);
+        led2.setIntervalState(true);
+        led2.setLedState(true);
+        led2.setInterval(interval);
       } else {
-        if (relay2.getRelayState()) 
+        if (led2.getLedState()) 
         { 
-          relay2.setRelayState(false); 
-          relay2.turnOff(); 
-          relay2.setIntervalState(false);
-          relay2.setInterval(0); 
+          led2.setLedState(false); 
+          led2.turnOff(); 
+          led2.setIntervalState(false);
+          led2.setInterval(0); 
         }
         else {
-          relay2.setRelayState(true); 
-          relay2.turnOn();
-          relay2.setIntervalState(false);
-          relay2.setInterval(0);
+          led2.setLedState(true); 
+          led2.turnOn();
+          led2.setIntervalState(false);
+          led2.setInterval(0);
         }       
       }
       break;     
   }
 }  
-
 
