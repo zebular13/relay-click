@@ -1,6 +1,7 @@
 /**
- * app.js connects index.html and relayClick.js together 
- * User activty is required for Web BLuetooth the make the connection
+ * app.js connects index.html and ledClick.js together.
+ * Modified to say 'led' instead of relay
+ * User activity is required for Web BLuetooth the make the connection
  */
 let bleSwitch = document.querySelector('#bleSwitch');
 
@@ -10,17 +11,17 @@ let bleSwitch = document.querySelector('#bleSwitch');
  */
 if (annyang){
  
-  var relayOne = function(){
-    console.log('relay One');
-    relayClick._writeCharacteristic(relayClick.characteristic1UUID, new Uint8Array([1]))
+  var ledOne = function(){
+    console.log('led One');
+    ledClick._writeCharacteristic(ledClick.characteristic1UUID, new Uint8Array([1]))
    .then(() => console.log('wrote 1'))
    .catch(error => {console.log('write error');
    });
   };
   
-  var relayTwo = function(){
-   console.log('relay Two'); 
-   relayClick._writeCharacteristic(relayClick.characteristic1UUID, new Uint8Array([2]))
+  var ledTwo = function(){
+   console.log('led Two'); 
+   ledClick._writeCharacteristic(ledClick.characteristic1UUID, new Uint8Array([2]))
    .then(() => console.log('wrote 2'))
    .catch(error => {console.log('write error');
    });
@@ -29,17 +30,17 @@ if (annyang){
    * Key value paris of voice commands, list can be expanded at will.
    */
   var commands = { 
-    'relay 1': relayOne,
-    'relay1': relayOne,
-    'one': relayOne,
-    '1': relayOne,
-    'lamp': relayOne,
-    'desklamp': relayOne,
-    'desk lamp': relayOne,
-    'relay 2': relayTwo,
-    'relay2': relayTwo,
-    'two': relayTwo,
-    '2': relayTwo
+    'led 1': ledOne,
+    'led1': ledOne,
+    'one': ledOne,
+    '1': ledOne,
+    'lamp': ledOne,
+    'desklamp': ledOne,
+    'desk lamp': ledOne,
+    'led 2': ledTwo,
+    'led2': ledTwo,
+    'two': ledTwo,
+    '2': ledTwo
   };
   
   // with annyang.debug below these call backs could be removed I think . . .
@@ -62,7 +63,7 @@ if (annyang){
 
 bleSwitch.addEventListener('click',function(){
   console.log('new switch click, connect');
-  relayClick.connect()
+  ledClick.connect()
       .then(() => console.log('connected'))
       .catch(error => { console.log('connect error!');
     });
